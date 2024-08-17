@@ -3,3 +3,4 @@ In this project I want to simulate Ants as a first step towards Agent Based Mode
 
 Literatur and Sources
 https://github.com/Nikorasu/PyNAnts -> Ant Pheromone Trail Simulation
+Also I am working with Chat GPT
