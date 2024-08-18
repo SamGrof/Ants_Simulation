@@ -10,8 +10,8 @@ pygame.init()
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 GRID_SIZE = 20
-BACKGROUND_COLOR = (255, 255, 255)  # White
-ANT_COLOR = (0, 0, 0)  # Black
+BACKGROUND_COLOR = (0, 0, 0)  # White
+ANT_COLOR = (255, 255, 255)  # Black
 FOOD_COLOR = (255, 0, 0)  # Red
 PHEROMONE_COLOR = (0, 0, 255)  # Blue
 PHEROMONE_DECAY = 0.0001  # Rate at which pheromones fade
