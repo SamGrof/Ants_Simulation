@@ -15,11 +15,16 @@ BACKGROUND_COLOR = (0, 0, 0)  # White
 ANT_COLOR = (255, 255, 255)  # Black
 FOOD_COLOR = (255, 0, 0)  # Red
 PHEROMONE_COLOR = (0, 0, 255)  # Blue
-PHEROMONE_DECAY = 0.0001  # Rate at which pheromones fade
+PHEROMONE_DECAY = 0.003  # Rate at which pheromones fade
+
 
 # Create the screen
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Ant Pheromone Trail Simulation")
+
+# Load the background image
+background_image = pygame.image.load('gras.jpg') 
+background_image = pygame.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT)) # Crop image size
 
 # Initialize pheromone grid
 pheromone_grid = np.zeros((SCREEN_WIDTH // GRID_SIZE, SCREEN_HEIGHT // GRID_SIZE))
@@ -38,6 +43,8 @@ def update_pheromones():
     pheromone_grid = np.maximum(0, pheromone_grid - PHEROMONE_DECAY)
 
 #Ant Class
+# Constants
+PHEROMONE_SPREAD_INTENSITY = 0.5 # Strength of pheromone release
 class Ant:
     def __init__(self, x, y):
         self.x = x
@@ -51,7 +58,7 @@ class Ant:
     def move(self):
         # Only update the angle every "n" steps
         if self.steps_since_last_change >= self.steps_threshold:
-            angle_change = random.gauss(0, 5)  # Gaussian distribution for angle change
+            angle_change = random.gauss(0, 10)  # Gaussian distribution for angle change
             self.angle += angle_change
             self.angle %= 360  # Keep angle within 0-360 degrees
             self.steps_since_last_change = 0  # Reset the counter
@@ -88,7 +95,7 @@ class Ant:
         grid_x = int(self.x // GRID_SIZE)
         grid_y = int(self.y // GRID_SIZE)
         if 0 <= grid_x < pheromone_grid.shape[0] and 0 <= grid_y < pheromone_grid.shape[1]:
-            pheromone_grid[grid_x, grid_y] = min(1, pheromone_grid[grid_x, grid_y] + 0.05)
+            pheromone_grid[grid_x, grid_y] = min(1, pheromone_grid[grid_x, grid_y] + PHEROMONE_SPREAD_INTENSITY) 
 
     def draw(self):
         pygame.draw.circle(screen, ANT_COLOR, (int(self.x), int(self.y)), 5)
@@ -97,7 +104,7 @@ class Ant:
 clock = pygame.time.Clock()
 # Main loop
 running = True
-ants = [Ant(100, 100), Ant(200, 200)]  # List of ant objects
+ants = [Ant(SCREEN_WIDTH/2, SCREEN_HEIGHT/2), Ant(SCREEN_WIDTH/2, SCREEN_HEIGHT/2)]  # List of ant objects
 food_positions = []  # List of food positions
 
 while running:
@@ -111,6 +118,8 @@ while running:
 
     # Fill the background
     screen.fill(BACKGROUND_COLOR)
+    # Draw the background image
+    screen.blit(background_image, (0, 0))
 
     # Update pheromones (decay over time)
     update_pheromones()
