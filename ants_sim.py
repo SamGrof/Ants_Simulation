@@ -31,15 +31,21 @@ background_image = pygame.transform.scale(background_image, (SCREEN_WIDTH, SCREE
 # Smell Field of the Food Sources
 
 # Constants
-SMELL_STRENGHT = 50 # The Strength of the emmiting food field
+SMELL_STRENGHT = 80 # The Strength of the emmiting food field
 FOOD_SMELL_RADIUS = 100  # Cut off radius for the smell field
+
+
 
 # Load the mushroom image
 mushroom_image = pygame.image.load('mushroom1.png')
-# Define the crop area (x, y, width, height)
-crop_rect = pygame.Rect(0, 0, 32, 32)  # Adjust these values as needed
-# Crop the image
-cropped_mushroom_image = mushroom_image.subsurface(crop_rect)
+
+# Define the target size for the cropped image
+target_size = (32, 32)  # Width, Height
+
+# Scale down the image to the target size
+cropped_mushroom_image = pygame.transform.scale(mushroom_image, target_size)
+
+
 
 # Initialize Smell Grid grid
 smell_grid = np.zeros((SCREEN_WIDTH // GRID_SIZE, SCREEN_HEIGHT // GRID_SIZE))
@@ -65,7 +71,7 @@ def draw_smell():
         for y in range(smell_grid.shape[1]):
             intensity = smell_grid[x, y]
             if intensity > 0:  # Only draw if intensity is greater than 0
-                color = (104,114,51, int(255 * intensity))  # Calculate alpha based on intensity
+                color = (252,89,163, int(255 * intensity))  # Calculate alpha based on intensity and set color
                 temp_surface = pygame.Surface((GRID_SIZE, GRID_SIZE), pygame.SRCALPHA)
                 temp_surface.fill(color)
                 screen.blit(temp_surface, (x * GRID_SIZE, y * GRID_SIZE))
@@ -210,9 +216,12 @@ while running:
         ant.draw()
         ant.release_pheremones()
 
-    # Draw food
-    for food in food_positions:
-        screen.blit(cropped_mushroom_image, (food[0] - cropped_mushroom_image.get_width() // 2, food[1] - cropped_mushroom_image.get_height() // 2))
+    # In your main loop where you draw food
+        for food in food_positions:
+            # Calculate the position to center the image in x and align the top edge in y
+            x_position = food[0] - cropped_mushroom_image.get_width() // 2
+            y_position = food[1] - cropped_mushroom_image.get_height()  # Align top edge to the center of the y-coordinate
+            screen.blit(cropped_mushroom_image, (x_position, y_position))
 
     # Update display
     pygame.display.flip()
