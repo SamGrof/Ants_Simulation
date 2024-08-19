@@ -10,10 +10,11 @@ pygame.init()
 # Constants
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
-GRID_SIZE = 10
-BACKGROUND_COLOR = (0, 0, 0)  # White
-ANT_COLOR = (255, 255, 255)  # Black
+GRID_SIZE = 5
+BACKGROUND_COLOR = (0, 0, 0)  # Black
+ANT_COLOR = (255, 255, 255)  # White
 FOOD_COLOR = (255, 0, 0)  # Red
+FRAMES_PER_SECOND = 30 # How many frames per second are updated; used in pygame.time.Clock()
 
 
 # Create the screen
@@ -23,6 +24,54 @@ pygame.display.set_caption("Ant Pheromone Trail Simulation")
 # Load the background image
 background_image = pygame.image.load('gras.jpg') 
 background_image = pygame.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT)) # Crop image size
+
+
+
+
+# Smell Field of the Food Sources
+
+# Constants
+SMELL_STRENGHT = 50 # The Strength of the emmiting food field
+FOOD_SMELL_RADIUS = 100  # Cut off radius for the smell field
+
+# Load the mushroom image
+mushroom_image = pygame.image.load('mushroom1.png')
+# Define the crop area (x, y, width, height)
+crop_rect = pygame.Rect(0, 0, 32, 32)  # Adjust these values as needed
+# Crop the image
+cropped_mushroom_image = mushroom_image.subsurface(crop_rect)
+
+# Initialize Smell Grid grid
+smell_grid = np.zeros((SCREEN_WIDTH // GRID_SIZE, SCREEN_HEIGHT // GRID_SIZE))
+
+def update_smell_grid(food_x, food_y):
+    grid_radius = FOOD_SMELL_RADIUS // GRID_SIZE
+    food_grid_x = food_x // GRID_SIZE
+    food_grid_y = food_y // GRID_SIZE
+
+    for x in range(food_grid_x - grid_radius, food_grid_x + grid_radius + 1): # Only the Field within the cut of FOOD_SMELL_RADIUS // GRID_SIZE is updated
+        for y in range(food_grid_y - grid_radius, food_grid_y + grid_radius + 1):
+            if 0 <= x < smell_grid.shape[0] and 0 <= y < smell_grid.shape[1]:
+                dx = (x * GRID_SIZE + GRID_SIZE // 2) - food_x
+                dy = (y * GRID_SIZE + GRID_SIZE // 2) - food_y
+                distance_squared = dx**2 + dy**2
+                if distance_squared > 0 and distance_squared <= FOOD_SMELL_RADIUS**2:
+                    intensity = min(1, SMELL_STRENGHT / distance_squared)
+                    smell_grid[x, y] = max(smell_grid[x, y], intensity)
+
+
+def draw_smell():
+    for x in range(smell_grid.shape[0]):
+        for y in range(smell_grid.shape[1]):
+            intensity = smell_grid[x, y]
+            if intensity > 0:  # Only draw if intensity is greater than 0
+                color = (104,114,51, int(255 * intensity))  # Calculate alpha based on intensity
+                temp_surface = pygame.Surface((GRID_SIZE, GRID_SIZE), pygame.SRCALPHA)
+                temp_surface.fill(color)
+                screen.blit(temp_surface, (x * GRID_SIZE, y * GRID_SIZE))
+
+
+
 
 # Pheromones of the Ants
 # Constants
@@ -62,6 +111,13 @@ class Ant:
         self.steps_since_last_change = 0  # Counter for steps
         self.steps_threshold = 3  # Update angle every "n" steps. This Controls the "speed" of the Ants.
 
+  # Load and scale the ant image
+        self.image = pygame.image.load('ant1.png')
+        self.image = pygame.transform.scale(self.image, (30, 30))  # Scale to desired size
+        
+        self.rect = self.image.get_rect(center=(self.x, self.y))
+
+
     def move(self):
         
         # Increment the step counter
@@ -99,13 +155,21 @@ class Ant:
             self.x = max(0, min(self.x, SCREEN_WIDTH - 1))
             self.y = max(0, min(self.y, SCREEN_HEIGHT - 1))
 
+            # Update the rect position (used for image) to the new position
+            self.rect = self.image.get_rect(center=(self.x, self.y))
+
     def release_pheremones(self):    # Update pheromone grid directly without bounds checking. Th min(1,...) ensures, that the Pheremones intensity does not exceed 1.
         grid_x = int(self.x // GRID_SIZE)
         grid_y = int(self.y // GRID_SIZE)
         pheromone_intensity_grid[grid_x, grid_y] = min(1, pheromone_intensity_grid[grid_x, grid_y] + PHEROMONE_SPREAD_INTENSITY)
 
     def draw(self):
-        pygame.draw.circle(screen, ANT_COLOR, (int(self.x), int(self.y)), 5)
+        # Rotate the image based on the angle
+        rotated_image = pygame.transform.rotate(self.image, -self.angle-90)  # Negative to rotate clockwise
+        new_rect = rotated_image.get_rect(center=self.rect.center)  # Adjust the position to avoid shifting
+        
+        # Blit the rotated image onto the screen. Blit is used to draw rotated images onto other objects (here the sceen)
+        screen.blit(rotated_image, new_rect.topleft)
 
 # Initializing a Clock - this sets the overall frame rate
 clock = pygame.time.Clock()
@@ -122,6 +186,8 @@ while running:
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:  # Left mouse button
                 food_positions.append(event.pos)
+                # Update smell when food is added
+                update_smell_grid(event.pos[0], event.pos[1])
 
     # Fill the background
     screen.fill(BACKGROUND_COLOR)
@@ -134,6 +200,10 @@ while running:
     # Draw pheromones
     draw_pheromones()
 
+    # Call this function before drawing ants
+    draw_smell()
+
+
     # Move and draw ants and release their pheromones
     for ant in ants:
         ant.move()
@@ -142,9 +212,9 @@ while running:
 
     # Draw food
     for food in food_positions:
-        pygame.draw.rect(screen, FOOD_COLOR, pygame.Rect(food[0] - 5, food[1] - 5, 10, 10))
+        screen.blit(cropped_mushroom_image, (food[0] - cropped_mushroom_image.get_width() // 2, food[1] - cropped_mushroom_image.get_height() // 2))
 
     # Update display
     pygame.display.flip()
     # Cap the frame rate to 30 FPS
-    clock.tick(30)
+    clock.tick(FRAMES_PER_SECOND)
