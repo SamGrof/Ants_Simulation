@@ -44,7 +44,7 @@ def draw_pheromones():
                 pheromone_surface.fill(color)
                 screen.blit(pheromone_surface, (x * GRID_SIZE, y * GRID_SIZE))
 
-def update_pheromones():
+def global_pheromones_fading():
     global pheromone_intensity_grid
     # Fade pheromones by reducing intensity
     pheromone_intensity_grid *= PHEROMONE_DECAY  # Reduce by 5% per frame
@@ -99,7 +99,7 @@ class Ant:
             self.x = max(0, min(self.x, SCREEN_WIDTH - 1))
             self.y = max(0, min(self.y, SCREEN_HEIGHT - 1))
 
-        # Update pheromone grid directly without bounds checking. Th min(1,...) ensures, that the Pheremones intensity does not exceed 1.
+    def release_pheremones(self):    # Update pheromone grid directly without bounds checking. Th min(1,...) ensures, that the Pheremones intensity does not exceed 1.
         grid_x = int(self.x // GRID_SIZE)
         grid_y = int(self.y // GRID_SIZE)
         pheromone_intensity_grid[grid_x, grid_y] = min(1, pheromone_intensity_grid[grid_x, grid_y] + PHEROMONE_SPREAD_INTENSITY)
@@ -129,15 +129,16 @@ while running:
     screen.blit(background_image, (0, 0))
 
     # Update pheromones (decay over time)
-    update_pheromones()
+    global_pheromones_fading()
 
     # Draw pheromones
     draw_pheromones()
 
-    # Move and draw ants
+    # Move and draw ants and release their pheromones
     for ant in ants:
         ant.move()
         ant.draw()
+        ant.release_pheremones()
 
     # Draw food
     for food in food_positions:
