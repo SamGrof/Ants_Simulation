@@ -32,7 +32,7 @@ background_image = pygame.transform.scale(background_image, (SCREEN_WIDTH, SCREE
 
 # Constants
 SMELL_STRENGHT = 80 # The Strength of the emmiting food field
-FOOD_SMELL_RADIUS = 100  # Cut off radius for the smell field
+FOOD_SMELL_RADIUS = 50  # Cut off radius for the smell field
 
 
 
@@ -113,7 +113,7 @@ class Ant:
         self.y = y
         self.carrying_food = False
         self.angle = random.uniform(0, 360)  # Start with a random angle
-        self.speed = 6  # Step size. The higher this number, the bigger circle, the better the angular resolution of movement. However, it also speeds up the movement.
+        self.speed = 3  # Step size. The higher this number, the bigger circle, the better the angular resolution of movement. However, it also speeds up the movement.
         self.steps_since_last_change = 0  # Counter for steps
         self.steps_threshold = 3  # Update angle every "n" steps. This Controls the "speed" of the Ants.
 
@@ -124,45 +124,72 @@ class Ant:
         self.rect = self.image.get_rect(center=(self.x, self.y))
 
 
+
     def move(self):
         
         # Increment the step counter
         self.steps_since_last_change += 1
 
-        # Only update the angle every "n" steps
-        if self.steps_since_last_change >= self.steps_threshold:
-            angle_change = random.gauss(0, 10)  # Gaussian distribution for angle change
-            self.angle += angle_change
-            self.angle %= 360  # Keep angle within 0-360 degrees
-            self.steps_since_last_change = 0  # Reset the counter
+
+        # Grid position of the ant
+        grid_x = int(self.x // GRID_SIZE)
+        grid_y = int(self.y // GRID_SIZE)
+
+        # Define possible movement directions (dx, dy) relative to the grid
+        directions = [(-1, -1), (0, -1), (1, -1), 
+                      (-1, 0),  (0, 0),  (1, 0), 
+                      (-1, 1),  (0, 1),  (1, 1)]
+        
+        best_direction = (0, 0)
+        highest_intensity = 0  
+
+        # Check surrounding cells for food smell
+        for dx, dy in directions:
+            new_x, new_y = grid_x + dx, grid_y + dy
+            if 0 <= new_x < smell_grid.shape[0] and 0 <= new_y < smell_grid.shape[1]:
+                intensity = smell_grid[new_x, new_y]
+                if intensity > highest_intensity:
+                    highest_intensity = intensity
+                    best_direction = (dx, dy)
+
+        # If a strong smell is detected, move towards it
+        if highest_intensity > 0:
+            # Calculate the new direction
+            dx = round(best_direction[0] * self.speed)
+            dy = round(best_direction[1] * self.speed)
+
+            # Update the angle based on the direction
+            self.angle = math.degrees(math.atan2(dy, dx))
+        else:
+            # Smoothed Random Walk. Only update the angle every "n" steps
+            if self.steps_since_last_change >= self.steps_threshold:
+                angle_change = random.gauss(0, 10)  # Gaussian distribution for angle change
+                self.angle += angle_change
+                self.angle %= 360  # Keep angle within 0-360 degrees
+                self.steps_since_last_change = 0  # Reset the counter
 
             # Convert angle to movement
             dx = self.speed * math.cos(math.radians(self.angle))
             dy = self.speed * math.sin(math.radians(self.angle))
 
-            # Update position
-            new_x = self.x + dx
-            new_y = self.y + dy
-
-            # Step off the boundaries and be reflected angle wise
-            if new_x < 0 or new_x > SCREEN_WIDTH:
-                dx = -dx
-                self.angle = 180 - self.angle  # Reflect the angle
-
-            if new_y < 0 or new_y > SCREEN_HEIGHT:
-                dy = -dy
-                self.angle = -self.angle % 360  # Reflect the angle; the % makes the angle lie within 0-365 degree
-
-            # Update position with reflected direction
-            self.x += dx
-            self.y += dy
-
-            # Keep within screen bounds (if desired, optional)
-            self.x = max(0, min(self.x, SCREEN_WIDTH - 1))
-            self.y = max(0, min(self.y, SCREEN_HEIGHT - 1))
-
-            # Update the rect position (used for image) to the new position
-            self.rect = self.image.get_rect(center=(self.x, self.y))
+        # Update position
+        new_x = self.x + dx
+        new_y = self.y + dy
+        # Step off the boundaries and be reflected angle wise
+        if new_x < 0 or new_x > SCREEN_WIDTH:
+            dx = -dx
+            self.angle = 180 - self.angle  # Reflect the angle
+        if new_y < 0 or new_y > SCREEN_HEIGHT:
+            dy = -dy
+            self.angle = -self.angle % 360  # Reflect the angle; the % makes the angle lie within 0-365 degree
+        # Update position with reflected direction
+        self.x += dx
+        self.y += dy
+        # Keep within screen bounds (if desired, optional)
+        self.x = max(0, min(self.x, SCREEN_WIDTH - 1))
+        self.y = max(0, min(self.y, SCREEN_HEIGHT - 1))
+        # Update the rect position (used for image) to the new position
+        self.rect = self.image.get_rect(center=(self.x, self.y))
 
     def release_pheremones(self):    # Update pheromone grid directly without bounds checking. Th min(1,...) ensures, that the Pheremones intensity does not exceed 1.
         grid_x = int(self.x // GRID_SIZE)
