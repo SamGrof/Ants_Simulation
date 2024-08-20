@@ -104,6 +104,19 @@ def global_pheromones_fading():
     # Fade pheromones by reducing intensity
     pheromone_intensity_grid *= PHEROMONE_DECAY  # Reduce by 5% per frame
 
+
+# Ant Stack
+# Load the ant stack image
+ant_stack_image = pygame.image.load('ant_hole_pixel.png')
+
+# Scale down the image to the target size
+target_size_stack = (64, 64)  # Width, Height
+cropped_ant_stack_image = pygame.transform.scale(ant_stack_image, target_size_stack)
+
+# Define the ant stack position (centered)
+ant_stack_position = (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 4)  # Adjust as needed
+
+
 #Ant Class
 # Constants
 PHEROMONE_SPREAD_INTENSITY = 0.5 # Strength of pheromone release
@@ -211,6 +224,8 @@ running = True
 ants = [Ant(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2), Ant(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)]  # List of ant objects, "//" is intager division
 food_positions = []  # List of food positions
 
+ants = [] # Setting a ant list before entering the while loop
+
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -219,8 +234,15 @@ while running:
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:  # Left mouse button
                 food_positions.append(event.pos)
-                # Update smell when food is added
-                update_smell_grid(event.pos[0], event.pos[1])
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_s:  # "s" key is pressed
+                # Spawn a new ant at the ant stack position
+                new_ant = Ant(ant_stack_position[0], ant_stack_position[1])
+                ants.append(new_ant)
+            elif event.key == pygame.K_d:  # "d" key is pressed
+                # Remove the oldest ant if any ants are present
+                if ants:
+                    ants.pop(0)
 
     # Fill the background
     screen.fill(BACKGROUND_COLOR)
@@ -229,6 +251,9 @@ while running:
 
     # Update pheromones (decay over time)
     global_pheromones_fading()
+
+    # Draw the ant stack (centered horizontally)
+    screen.blit(cropped_ant_stack_image, (ant_stack_position[0] - cropped_ant_stack_image.get_width() // 2, ant_stack_position[1] - cropped_ant_stack_image.get_height() // 2))
 
     # Draw pheromones
     draw_pheromones()
