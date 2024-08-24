@@ -25,57 +25,77 @@ pygame.display.set_caption("Ant Pheromone Trail Simulation")
 background_image = pygame.image.load('gras.jpg') 
 background_image = pygame.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT)) # Crop image size
 
+# Food Field & Food Sources
+SMELL_STRENGHT = 80  # The strength of the emitting food field
+FOOD_SMELL_RADIUS = 50  # Cutoff radius for the smell field
+GLOBAL_FOOD_FIELD_REDUCTION = 0.01  # Reduction per frame for the global smell field
+LOCAL_FOOD_FIELD_UPDATE = 100  # Number of cycles before updating each food source's smell field
 
+class FoodSource:
+    def __init__(self, x, y):
+        self.position = (x, y)
+        self.grid_radius = FOOD_SMELL_RADIUS // GRID_SIZE
+        self.update_cycle = 0  # Track update cycles
 
+    def update_smell(self, smell_grid):
+        food_x, food_y = self.position
+        food_grid_x = food_x // GRID_SIZE
+        food_grid_y = food_y // GRID_SIZE
 
-# Smell Field of the Food Sources
+        for x in range(food_grid_x - self.grid_radius, food_grid_x + self.grid_radius + 1):
+            for y in range(food_grid_y - self.grid_radius, food_grid_y + self.grid_radius + 1):
+                if 0 <= x < smell_grid.shape[0] and 0 <= y < smell_grid.shape[1]:
+                    dx = (x * GRID_SIZE + GRID_SIZE // 2) - food_x
+                    dy = (y * GRID_SIZE + GRID_SIZE // 2) - food_y
+                    distance_squared = dx**2 + dy**2
+                    if distance_squared > 0 and distance_squared <= FOOD_SMELL_RADIUS**2:
+                        intensity = min(1, SMELL_STRENGHT / distance_squared)
+                        smell_grid[x, y] = max(smell_grid[x, y], intensity)
 
-# Constants
-SMELL_STRENGHT = 80 # The Strength of the emmiting food field
-FOOD_SMELL_RADIUS = 50  # Cut off radius for the smell field
+    def draw(self, screen):
+        x_position = self.position[0] - cropped_mushroom_image.get_width() // 2
+        y_position = self.position[1] - cropped_mushroom_image.get_height()
+        screen.blit(cropped_mushroom_image, (x_position, y_position))
 
+class FoodField:
+    def __init__(self, screen_width, screen_height, grid_size):
+        self.food_sources = []
+        self.smell_grid = np.zeros((screen_width // grid_size, screen_height // grid_size))
 
+    def add_food_source(self, position):
+        new_food = FoodSource(position[0], position[1])
+        self.food_sources.append(new_food)
 
-# Load the mushroom image
-mushroom_image = pygame.image.load('mushroom1.png')
+    def remove_food_source(self, food_source):
+        if food_source in self.food_sources:
+            self.food_sources.remove(food_source)
 
-# Define the target size for the cropped image
-target_size = (32, 32)  # Width, Height
+    def update(self):
+        # Apply global reduction
+        self.smell_grid -= GLOBAL_FOOD_FIELD_REDUCTION
+        self.smell_grid = np.clip(self.smell_grid, 0, 1)  # Ensure values stay between 0 and 1
 
-# Scale down the image to the target size
-cropped_mushroom_image = pygame.transform.scale(mushroom_image, target_size)
+        # Update smell for each food source on its own cycle
+        for food_source in self.food_sources:
+            food_source.update_cycle += 1
+            if food_source.update_cycle >= LOCAL_FOOD_FIELD_UPDATE:
+                food_source.update_smell(self.smell_grid)
+                food_source.update_cycle = 0
 
+    def draw(self, screen):
+        # Draw the smell field
+        for x in range(self.smell_grid.shape[0]):
+            for y in range(self.smell_grid.shape[1]):
+                intensity = self.smell_grid[x, y]
+                if intensity > 0:  # Only draw if intensity is greater than 0
+                    color = (252, 89, 163, int(255 * intensity))  # Set color with alpha
+                    temp_surface = pygame.Surface((GRID_SIZE, GRID_SIZE), pygame.SRCALPHA)
+                    temp_surface.fill(color)
+                    screen.blit(temp_surface, (x * GRID_SIZE, y * GRID_SIZE))
 
-
-# Initialize Smell Grid grid
-smell_grid = np.zeros((SCREEN_WIDTH // GRID_SIZE, SCREEN_HEIGHT // GRID_SIZE))
-
-def update_smell_grid(food_x, food_y):
-    grid_radius = FOOD_SMELL_RADIUS // GRID_SIZE
-    food_grid_x = food_x // GRID_SIZE
-    food_grid_y = food_y // GRID_SIZE
-
-    for x in range(food_grid_x - grid_radius, food_grid_x + grid_radius + 1): # Only the Field within the cut of FOOD_SMELL_RADIUS // GRID_SIZE is updated
-        for y in range(food_grid_y - grid_radius, food_grid_y + grid_radius + 1):
-            if 0 <= x < smell_grid.shape[0] and 0 <= y < smell_grid.shape[1]:
-                dx = (x * GRID_SIZE + GRID_SIZE // 2) - food_x
-                dy = (y * GRID_SIZE + GRID_SIZE // 2) - food_y
-                distance_squared = dx**2 + dy**2
-                if distance_squared > 0 and distance_squared <= FOOD_SMELL_RADIUS**2:
-                    intensity = min(1, SMELL_STRENGHT / distance_squared)
-                    smell_grid[x, y] = max(smell_grid[x, y], intensity)
-
-
-def draw_smell():
-    for x in range(smell_grid.shape[0]):
-        for y in range(smell_grid.shape[1]):
-            intensity = smell_grid[x, y]
-            if intensity > 0:  # Only draw if intensity is greater than 0
-                color = (252,89,163, int(255 * intensity))  # Calculate alpha based on intensity and set color
-                temp_surface = pygame.Surface((GRID_SIZE, GRID_SIZE), pygame.SRCALPHA)
-                temp_surface.fill(color)
-                screen.blit(temp_surface, (x * GRID_SIZE, y * GRID_SIZE))
-
+        # Draw each food source
+        for food_source in self.food_sources:
+            food_source.draw(screen)
 
 
 
@@ -220,85 +240,66 @@ class Ant:
 # Initializing a Clock - this sets the overall frame rate
 clock = pygame.time.Clock()
 
+# Initialize the FoodField instance
+food_field = FoodField(SCREEN_WIDTH, SCREEN_HEIGHT, GRID_SIZE)
+# Initialize the smell grid
+smell_grid = np.zeros((SCREEN_WIDTH//GRID_SIZE, SCREEN_HEIGHT//GRID_SIZE))
 
 # Main loop
 running = True
-
-ants = []  # List of ant objects, "//" is intager division
-food_positions = []  # List of food positions
+ants = []
 
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
-        # Left mouse button (adding food)
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            food_positions.append(event.pos)
-            update_smell_grid(event.pos[0], event.pos[1])
-        
-        # Right mouse button (removing food)
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
-            mouse_x, mouse_y = event.pos
-            closest_food = None
-            min_distance = float('inf')
-            
-            for food in food_positions:
-                food_x, food_y = food
-                distance = math.hypot(food_x - mouse_x, food_y - mouse_y)
-                
-                if distance < min_distance:
-                    min_distance = distance
-                    closest_food = food
-            
-            # Remove the food if within the bounds
-            if closest_food and min_distance <= cropped_mushroom_image.get_width() // 2:
-                food_positions.remove(closest_food)
-                
 
-                
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:  # Left click to add food
+                food_field.add_food_source(event.pos)
+            elif event.button == 3:  # Right click to remove closest food
+                mouse_x, mouse_y = event.pos
+                closest_food = None
+                min_distance = float('inf')
+
+                for food in food_field.food_sources:
+                    food_x, food_y = food.position
+                    distance = math.hypot(food_x - mouse_x, food_y - mouse_y)
+
+                    if distance < min_distance:
+                        min_distance = distance
+                        closest_food = food
+
+                if closest_food and min_distance <= cropped_mushroom_image.get_width() // 2:
+                    food_field.remove_food_source(closest_food)
+
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_s:  # "s" key is pressed
-                # Spawn a new ant at the ant stack position
                 new_ant = Ant(ant_stack_position[0], ant_stack_position[1])
                 ants.append(new_ant)
             elif event.key == pygame.K_d:  # "d" key is pressed
-                # Remove the oldest ant if any ants are present
                 if ants:
                     ants.pop(0)
 
     # Fill the background
     screen.fill(BACKGROUND_COLOR)
-    # Draw the background image
     screen.blit(background_image, (0, 0))
 
-    # Update pheromones (decay over time)
     global_pheromones_fading()
 
-    # Draw the ant stack (centered horizontally)
     screen.blit(cropped_ant_stack_image, (ant_stack_position[0] - cropped_ant_stack_image.get_width() // 2, ant_stack_position[1] - cropped_ant_stack_image.get_height() // 2))
 
-    # Draw pheromones
     draw_pheromones()
 
-    # Call this function before drawing ants
-    draw_smell()
+    # Update and draw food field
+    food_field.update()
+    food_field.draw(screen)
 
-
-    # Move and draw ants and release their pheromones
     for ant in ants:
         ant.move()
         ant.draw()
         ant.release_pheremones()
 
-    # In your main loop where you draw food
-        for food in food_positions:
-            # Calculate the position to center the image in x and align the top edge in y
-            x_position = food[0] - cropped_mushroom_image.get_width() // 2
-            y_position = food[1] - cropped_mushroom_image.get_height()  # Align top edge to the center of the y-coordinate
-            screen.blit(cropped_mushroom_image, (x_position, y_position))
-
-    # Update display
     pygame.display.flip()
-    # Cap the frame rate to 30 FPS
     clock.tick(FRAMES_PER_SECOND)
