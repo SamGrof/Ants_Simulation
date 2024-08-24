@@ -26,10 +26,21 @@ background_image = pygame.image.load('gras.jpg')
 background_image = pygame.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT)) # Crop image size
 
 # Food Field & Food Sources
+
+
 SMELL_STRENGHT = 80  # The strength of the emitting food field
 FOOD_SMELL_RADIUS = 50  # Cutoff radius for the smell field
-GLOBAL_FOOD_FIELD_REDUCTION = 0.01  # Reduction per frame for the global smell field
-LOCAL_FOOD_FIELD_UPDATE = 100  # Number of cycles before updating each food source's smell field
+GLOBAL_FOOD_FIELD_REDUCTION = 0.005  # Reduction per frame for the global smell field
+LOCAL_FOOD_FIELD_UPDATE = 200  # Number of cycles before updating each food source's smell field
+
+# Load the mushroom image
+mushroom_image = pygame.image.load('mushroom1.png')
+
+# Define the target size for the cropped image
+target_size = (32, 32)  # Width, Height
+
+# Scale down the image to the target size
+cropped_mushroom_image = pygame.transform.scale(mushroom_image, target_size)
 
 class FoodSource:
     def __init__(self, x, y):
@@ -141,7 +152,7 @@ ant_stack_position = (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 4)  # Adjust as needed
 # Constants
 PHEROMONE_SPREAD_INTENSITY = 0.5 # Strength of pheromone release
 class Ant:
-    def __init__(self, x, y):
+    def __init__(self, x, y,smell_grid):
         self.x = x
         self.y = y
         self.carrying_food = False
@@ -149,6 +160,7 @@ class Ant:
         self.speed = 3  # Step size. The higher this number, the bigger circle, the better the angular resolution of movement. However, it also speeds up the movement.
         self.steps_since_last_change = 0  # Counter for steps
         self.steps_threshold = 3  # Update angle every "n" steps. This Controls the "speed" of the Ants.
+        self.smell_grid = smell_grid  # Reference to the smell gri
 
   # Load and scale the ant image
         self.image = pygame.image.load('ant1.png')
@@ -179,8 +191,8 @@ class Ant:
         # Check surrounding cells for food smell
         for dx, dy in directions:
             new_x, new_y = grid_x + dx, grid_y + dy
-            if 0 <= new_x < smell_grid.shape[0] and 0 <= new_y < smell_grid.shape[1]:
-                intensity = smell_grid[new_x, new_y]
+            if 0 <= new_x < self.smell_grid.shape[0] and 0 <= new_y < self.smell_grid.shape[1]:
+                intensity = self.smell_grid[new_x, new_y]
                 if intensity > highest_intensity:
                     highest_intensity = intensity
                     best_direction = (dx, dy)
@@ -243,7 +255,7 @@ clock = pygame.time.Clock()
 # Initialize the FoodField instance
 food_field = FoodField(SCREEN_WIDTH, SCREEN_HEIGHT, GRID_SIZE)
 # Initialize the smell grid
-smell_grid = np.zeros((SCREEN_WIDTH//GRID_SIZE, SCREEN_HEIGHT//GRID_SIZE))
+#smell_grid = np.zeros((SCREEN_WIDTH//GRID_SIZE, SCREEN_HEIGHT//GRID_SIZE)) # this is now handled within the food field class and passed to the ants
 
 # Main loop
 running = True
@@ -276,7 +288,7 @@ while running:
 
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_s:  # "s" key is pressed
-                new_ant = Ant(ant_stack_position[0], ant_stack_position[1])
+                new_ant = Ant(ant_stack_position[0], ant_stack_position[1], food_field.smell_grid)
                 ants.append(new_ant)
             elif event.key == pygame.K_d:  # "d" key is pressed
                 if ants:
@@ -288,14 +300,14 @@ while running:
 
     global_pheromones_fading()
 
+    # Draw the ant stack
     screen.blit(cropped_ant_stack_image, (ant_stack_position[0] - cropped_ant_stack_image.get_width() // 2, ant_stack_position[1] - cropped_ant_stack_image.get_height() // 2))
-
-    draw_pheromones()
 
     # Update and draw food field
     food_field.update()
     food_field.draw(screen)
 
+    # Move and draw ants, let them release pheromones
     for ant in ants:
         ant.move()
         ant.draw()
